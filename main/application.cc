@@ -87,6 +87,7 @@ void Application::Initialize() {
 
     // Add state change listeners
     state_machine_.AddStateChangeListener([this](DeviceState old_state, DeviceState new_state) {
+        previous_state_ = old_state;  // Store previous state for transition detection
         xEventGroupSetBits(event_group_, MAIN_EVENT_STATE_CHANGED);
     });
 
@@ -809,6 +810,11 @@ void Application::HandleStateChangedEvent() {
             display->SetEmotion("neutral");
             audio_service_.EnableVoiceProcessing(false);
             audio_service_.EnableWakeWordDetection(true);
+
+            // Play exclamation sound when transitioning from listening to idle
+            if (previous_state_ == kDeviceStateListening) {
+                audio_service_.PlaySound(Lang::Sounds::OGG_EXCLAMATION);
+            }
             break;
         case kDeviceStateConnecting:
             display->SetStatus(Lang::Strings::CONNECTING);
