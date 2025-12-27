@@ -528,6 +528,8 @@ void Application::InitializeProtocol() {
             } else if (strcmp(state->valuestring, "stop") == 0) {
                 Schedule([this]() {
                     if (GetDeviceState() == kDeviceStateSpeaking) {
+                        // Set flag to indicate this is a server-initiated stop (e.g., "goodbye")
+                        server_initiated_stop_ = true;
                         if (listening_mode_ == kListeningModeManualStop) {
                             SetDeviceState(kDeviceStateIdle);
                         } else {
@@ -802,6 +804,8 @@ void Application::HandleStateChangedEvent() {
     auto display = board.GetDisplay();
     auto led = board.GetLed();
     led->OnStateChanged();
+
+    // server_initiated_stop_ = false;
     
     switch (new_state) {
         case kDeviceStateUnknown:
@@ -838,6 +842,14 @@ void Application::HandleStateChangedEvent() {
                 play_popup_on_listening_ = false;
                 audio_service_.PlaySound(Lang::Sounds::OGG_POPUP);
             }
+
+            // Play popup sound when transitioning from Connecting or Speaking, but NOT if it's a server-initiated stop (e.g., "goodbye")
+            // if ((previous_state_ == kDeviceStateConnecting || previous_state_ == kDeviceStateSpeaking) && !server_initiated_stop_) {
+            //     audio_service_.PlaySound(Lang::Sounds::OGG_POPUP);
+            // }
+            // Reset the server-initiated stop flag after checking
+            // server_initiated_stop_ = false;
+            audio_service_.PlaySound(Lang::Sounds::OGG_POPUP);
             break;
         case kDeviceStateSpeaking:
             display->SetStatus(Lang::Strings::SPEAKING);
@@ -848,6 +860,10 @@ void Application::HandleStateChangedEvent() {
                 audio_service_.EnableWakeWordDetection(audio_service_.IsAfeWakeWord());
             }
             audio_service_.ResetDecoder();
+
+            if (previous_state_ == kDeviceStateListening) {
+                audio_service_.PlaySound(Lang::Sounds::OGG_POPUP);
+            }
             break;
         case kDeviceStateWifiConfiguring:
             audio_service_.EnableVoiceProcessing(false);
